@@ -2,15 +2,14 @@
 
 CSE3CWA / CSE5006 Assignment 3. A private prompt library where a user signs in with GitHub and can create, read, update and delete their own AI prompt records.
 
-> **TODO before submitting:** replace every `YOUR-APP` and every section marked **TODO** with your own details.
 
 ## Deployment
 
 | | |
 |---|---|
-| Public URL | https://YOUR-APP.onrender.com |
+| Public URL | ai-capsule-fb11.onrender.com |
 | Cloud platform | Render (free Web Service, Node runtime) |
-| Health check | https://YOUR-APP.onrender.com/api/health returns `{ "status": "ok" }` |
+| Health check | https://ai-capsule-fb11.onrender.com/api/health returns `{ "status": "ok" }` |
 
 The React frontend and the Express API are served by **one** Render web service from the same public URL. Express serves the built React files from `client/dist`, so the browser talks to the API on the same origin. That avoids CORS and cross-site cookie configuration.
 
@@ -76,7 +75,7 @@ Stored in Render's **Environment** settings and in a local `.env` file. `.env` i
 | `JWT_SECRET` | Secret used to sign and verify the application JWT |
 | `GITHUB_CLIENT_ID` | GitHub OAuth App client ID |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret |
-| `GITHUB_CALLBACK_URL` | `https://YOUR-APP.onrender.com/auth/github/callback` |
+| `GITHUB_CALLBACK_URL` | `https://ai-capsule-fb11.onrender.com/auth/github/callback` |
 | `NODE_ENV` | `production` on Render |
 | `CLIENT_URL` | Local dev only (Vite URL); unset on Render |
 | `DB_PATH` | Optional SQLite file path (default `./data/capsules.db`) |
@@ -135,29 +134,45 @@ Run against the deployed URL:
 
 ```bash
 # Test 1 - no authentication
-curl -i https://YOUR-APP.onrender.com/api/capsules
+curl -i https://ai-capsule-fb11.onrender.com/api/capsules
 
 # Test 2 - fake / invalid JWT
-curl -i -H "Cookie: token=fake-token-123" https://YOUR-APP.onrender.com/api/capsules
+curl -i -H "Cookie: token=fake-token-123" https://ai-capsule-fb11.onrender.com/api/capsules
 ```
 
-**TODO: paste your real results.** Expected:
+(On Windows PowerShell, use `curl.exe` instead of `curl`.)
+
+Results from the deployed app (22 Sep 2026):
 
 ```
-Test 1: HTTP/2 401   {"error":"Unauthorized: no token"}
-Test 2: HTTP/2 401   {"error":"Unauthorized: invalid token"}
+> curl.exe -i https://ai-capsule-fb11.onrender.com/api/capsules
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json; charset=utf-8
+{"error":"Unauthorized: no token"}
+
+> curl.exe -i -H "Cookie: token=fake-token-123" https://ai-capsule-fb11.onrender.com/api/capsules
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json; charset=utf-8
+{"error":"Unauthorized: invalid token"}
 ```
+
+Test 2 returns "invalid token" rather than "no token", which shows the server runs `jwt.verify` on the cookie instead of only checking that a cookie exists.
 
 ## Limitation
 
 Data does not persist on the free Render instance: because SQLite is stored on the instance's temporary filesystem, all capsules are lost whenever the service restarts, redeploys or sleeps. The app also has no search or filtering, so a long list of capsules becomes hard to browse.
 
+
 ## AI-assisted development
 
-**TODO: write this section in your own words. It must be true, and you need to be able to explain it.**
+- **Tools used:** I used Claude (Anthropic) to help write most of the code: the project setup, the Express routes, the GitHub login and JWT code, the React pages, and a first draft of this README. I did the setup myself: I created the GitHub OAuth app, filled in the .env file, pushed the code to GitHub and deployed it on Render. I also tested it locally and on the live site.
 
-- **Tools used:** e.g. Claude (Anthropic) for project scaffolding, Express routes, OAuth/JWT code, the React UI and this README.
-- **Problem found and corrected:** describe one real issue you hit, what was wrong and how you fixed it. Common ones during deployment: the GitHub OAuth callback URL not matching `GITHUB_CALLBACK_URL` (GitHub shows "redirect_uri is not associated with this application"); the cookie not being set until `trust proxy` / HTTPS were in place; `/dashboard` returning "Cannot GET" before the catch-all route was added.
-- **How OAuth, JWT and protected API behaviour were verified:** signed in with GitHub on the deployed site and reached the dashboard; ran the two cURL tests (both 401); checked in browser DevTools > Application > Cookies that `token` is HttpOnly and Secure; confirmed POST, PUT and DELETE without a cookie also return 401.
-- **How CRUD and ownership were verified:** created, edited and deleted a record on the deployed site and refreshed to confirm the changes; signed in with a second GitHub account and confirmed it saw an empty list and could not see the first account's records. *(Only claim what you actually did.)*
-- **Decision I made and can explain:** e.g. serving React and Express from one Render service, so the cookie is first-party and no CORS setup is needed; or using `WHERE id = ? AND user_id = ?` so ownership is enforced in the database query itself rather than checked afterwards.
+- **Problem found and corrected:** The AI's first version used a package called `better-sqlite3` for the database. When I ran `npm install` on my Windows laptop, it failed with a long list of errors saying it couldn't find Python. The package has no ready-made version for Node 24, so npm tried to build it from source, which needs Python and C++ tools I don't have. To fix it, I switched to the SQLite that comes built into Node (`node:sqlite`). After that, `npm install` worked straight away, and it also works on Render because nothing needs to be compiled.
+
+  I also had a problem during deployment. I named my Render service `ai-capsule-thrinadh`, but Render gave me the URL `ai-capsule-fb11.onrender.com`. My callback URL was wrong at first, so I had to update `GITHUB_CALLBACK_URL` on Render and add the correct callback URL in my GitHub OAuth app settings.
+
+- **How I checked login and protection work:** I signed in with GitHub, first on localhost and then on the live Render site, and got to the dashboard. I ran the two cURL tests on the live site and both gave 401 Unauthorized. The first said "no token" and the second said "invalid token". This shows the server really checks the JWT and doesn't just look for any cookie. I also opened Chrome DevTools > Application > Cookies and saw that the `token` cookie is HttpOnly and Secure. In the code, `router.use(requireAuth)` in `capsules.js` means all four CRUD routes go through the JWT check.
+
+- **How I checked CRUD and ownership:** On the live site I created a capsule, refreshed the page to make sure it was saved, edited it, and then deleted it. For ownership, the server gets the user ID from the JWT, not from the browser, and the update and delete queries use `WHERE id = ? AND user_id = ?`. This means a user can only change or delete their own records.
+
+- **A decision I made:** I put the React frontend and the Express backend in one Render service with one URL. Express serves the built React files and also handles the API. Because everything is on the same website, the login cookie works normally and I didn't need to set up CORS. If I had split them into two services, I would have needed extra CORS and cookie settings to make login work across two different URLs.
