@@ -1,0 +1,30 @@
+{
+  "name": "ai-capsule",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Capsule - cloud-deployed AI prompt manager (React + Express + GitHub OAuth + JWT + SQLite)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev:server": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "node --disable-warning=ExperimentalWarning server/index.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1",
+    "vite": "^6.0.7"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}
